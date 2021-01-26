@@ -5,12 +5,12 @@ from scipy.optimize import minimize
 
 class SurvivalAnalysis:
 
-    def sim(self, theta0, size, y_max):
+    def sim(self, model, theta0, size, y_max):
         D = []
         for i in range(size):
             x1 = random.randint(0, 1)
             x2 = random.uniform(0, 1)
-            myu = theta0 * x1 + theta0 * x2
+            myu = model([x1, x2], theta0)
             history = list(np.random.exponential(1 / myu, y_max))
             D += [[x1, x2] + history]
         D = pd.DataFrame(D)
@@ -33,17 +33,18 @@ class SurvivalAnalysis:
     def NegativeMarginalLogLikelihood(self, theta):
         NMLL = 0
         for i in range(len(self.Y)):
-            myu = theta * self.X[i,0] + theta * self.X[i,1]            
+            myu = self.model(self.X[i], theta)
             NMLL -= self.LogLikelihood_(myu, self.Y[i])
         return NMLL
     
-    def cons(self, theta):
-        return theta
+    def cons(self, theta, ipshi=1e-5):
+        return theta - ipshi
     
-    def fit(self, X, Y, months, theta_ = 0.5):
+    def fit(self, model, X, Y, months, theta_init):
+        self.model = model
         self.X = X
         self.Y = Y
         self.months = months
-        cons = ({'type': 'ineq', 'fun': self.cons})        
-        theta_ = minimize(self.NegativeMarginalLogLikelihood, x0=theta_, constraints=cons, method="SLSQP")
+        cons = ({'type': 'ineq', 'fun': self.cons})
+        theta_ = minimize(self.NegativeMarginalLogLikelihood, x0=theta_init, method='SLSQP', constraints=cons)
         return theta_["x"]
